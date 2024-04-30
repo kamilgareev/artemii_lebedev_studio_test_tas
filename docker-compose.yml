@@ -1,0 +1,50 @@
+services:
+
+  project:
+    build:
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
+      parser:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./project:/project
+    command: >
+      sh -c "python manage.py migrate && 
+      python manage.py runserver 0.0.0.0:8000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=specialists_registry
+      - DB_USER=postgres
+      - DB_PASS=password
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_DB=specialists_registry
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  parser:
+    build:
+      context: .
+    environment:
+      - DB_HOST=db
+      - DB_NAME=specialists_registry
+      - DB_USER=postgres
+      - DB_PASS=password
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python parser_dir/parser.py"
